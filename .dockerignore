@@ -1,0 +1,29 @@
+# Build context lives at repo root. Keep it small — the Go build only needs
+# go.work, pkg/ and the Go service modules.
+
+# Legacy Java services (schema already extracted into Go migrations)
+services/*-service
+
+# Local build artifacts
+bin
+target
+
+# Editor / VCS
+.idea
+.vscode
+*.iml
+.git
+.gitignore
+
+# Docs & meta (not needed in image)
+docs
+README.md
+Makefile
+
+# Env files (never bake secrets into images)
+.env
+.env.*
+!.env.example
+
+# Compose files (not used inside the build)
+docker-compose*.yml

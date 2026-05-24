@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS commission_rates CASCADE;
+DROP TABLE IF EXISTS vendor_bank_accounts CASCADE;
+DROP TABLE IF EXISTS vendors CASCADE;

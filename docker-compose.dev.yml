@@ -1,0 +1,27 @@
+# Dev environment override — full stack runs in containers.
+# Build args (SERVICE) come from the base file; here we only set the tag,
+# expose ports, and cap memory.
+
+services:
+  postgres-catalog: { ports: ["5432:5432"] }
+  postgres-order:   { ports: ["5433:5432"] }
+  postgres-payment: { ports: ["5434:5432"] }
+  pgadmin:          { ports: ["5050:80"]  }
+
+  catalog-service:
+    image: ecom/catalog-service:${API_TAG:-dev}
+    environment: { GIN_MODE: release }
+    ports: ["8081:8081"]
+    deploy: { resources: { limits: { memory: 256M } } }
+
+  order-service:
+    image: ecom/order-service:${API_TAG:-dev}
+    environment: { GIN_MODE: release }
+    ports: ["8082:8082"]
+    deploy: { resources: { limits: { memory: 256M } } }
+
+  payment-service:
+    image: ecom/payment-service:${API_TAG:-dev}
+    environment: { GIN_MODE: release }
+    ports: ["8083:8083"]
+    deploy: { resources: { limits: { memory: 256M } } }

@@ -1,0 +1,63 @@
+# Production override.
+# - Postgres ports NOT exposed (internal network only).
+# - pgAdmin disabled by default (enable with --profile admin).
+# - Services run prebuilt images pulled from your registry.
+
+services:
+  postgres-catalog:
+    environment:
+      POSTGRES_DB:       ${CATALOG_DB:-catalog_db}
+      POSTGRES_USER:     ${CATALOG_DB_USER:?required}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:?required}
+    deploy: { resources: { limits: { memory: 2G } } }
+
+  postgres-order:
+    environment:
+      POSTGRES_DB:       ${ORDER_DB:-order_db}
+      POSTGRES_USER:     ${ORDER_DB_USER:?required}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:?required}
+    deploy: { resources: { limits: { memory: 2G } } }
+
+  postgres-payment:
+    environment:
+      POSTGRES_DB:       ${PAYMENT_DB:-payment_db}
+      POSTGRES_USER:     ${PAYMENT_DB_USER:?required}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:?required}
+    deploy: { resources: { limits: { memory: 2G } } }
+
+  redpanda:
+    deploy: { resources: { limits: { memory: 2G } } }
+
+  pgadmin:
+    profiles: ["admin"]
+    ports: ["127.0.0.1:5050:80"]
+
+  catalog-service:
+    image: ${CATALOG_IMAGE:-ecom/catalog-service}:${API_TAG:-latest}
+    pull_policy: always
+    environment: { GIN_MODE: release }
+    deploy:
+      replicas: ${CATALOG_REPLICAS:-2}
+      resources: { limits: { memory: 256M } }
+      restart_policy: { condition: any, delay: 10s, max_attempts: 3 }
+
+  order-service:
+    image: ${ORDER_IMAGE:-ecom/order-service}:${API_TAG:-latest}
+    pull_policy: always
+    environment: { GIN_MODE: release }
+    deploy:
+      replicas: ${ORDER_REPLICAS:-2}
+      resources: { limits: { memory: 256M } }
+
+  payment-service:
+    image: ${PAYMENT_IMAGE:-ecom/payment-service}:${API_TAG:-latest}
+    pull_policy: always
+    environment: { GIN_MODE: release }
+    deploy:
+      replicas: ${PAYMENT_REPLICAS:-2}
+      resources: { limits: { memory: 256M } }
+
+  gateway:
+    ports: ["80:80"]
+    deploy:
+      restart_policy: { condition: any }

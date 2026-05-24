@@ -1,0 +1,244 @@
+# Base compose — defines all services, 3 independent Postgres instances
+# ("Database per Service"), and the Redpanda (Kafka) broker for the
+# choreography saga.
+#
+# Use with profile overrides:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml   up
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml  up
+
+name: ecom
+
+# ── Reusable build definition (one Dockerfile, selected by SERVICE arg) ──
+x-go-build: &go-build
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  # ─────────────────────────────────────────────────────────
+  # Databases — one per service
+  # ─────────────────────────────────────────────────────────
+  postgres-catalog:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-catalog
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${CATALOG_DB:-catalog_db}
+      POSTGRES_USER:     ${CATALOG_DB_USER:-catalog}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-catalog-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
+  postgres-order:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-order
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${ORDER_DB:-order_db}
+      POSTGRES_USER:     ${ORDER_DB_USER:-orderuser}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:-orderpass}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-order-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
+  postgres-payment:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-payment
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${PAYMENT_DB:-payment_db}
+      POSTGRES_USER:     ${PAYMENT_DB_USER:-paymentuser}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-paymentpass}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-payment-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
+  # ─────────────────────────────────────────────────────────
+  # Redpanda — Kafka-compatible broker for the choreography saga
+  #   internal listener  redpanda:9092   (services on ecom-net)
+  #   external listener  localhost:19092 (host tools: rpk, kafka CLI)
+  # ─────────────────────────────────────────────────────────
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.7
+    container_name: ecom-redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --smp=1
+      - --memory=512M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+    ports:
+      - "19092:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ecom-net]
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.7.2
+    container_name: ecom-redpanda-console
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    ports:
+      - "8085:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  # ─────────────────────────────────────────────────────────
+  # Services — Go binaries, one image each (built from one Dockerfile)
+  # ─────────────────────────────────────────────────────────
+  catalog-service:
+    image: ecom/catalog-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: catalog
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:     "8081"
+      DB_HOST:       postgres-catalog
+      DB_PORT:       "5432"
+      DB_USER:       ${CATALOG_DB_USER:-catalog}
+      DB_PASSWORD:   ${CATALOG_DB_PASSWORD:-catalog}
+      DB_NAME:       ${CATALOG_DB:-catalog_db}
+      DB_SSLMODE:    disable
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET:    ${JWT_SECRET:-dev-secret-change-me}
+    depends_on:
+      postgres-catalog:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  order-service:
+    image: ecom/order-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: order
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:        "8082"
+      DB_HOST:          postgres-order
+      DB_PORT:          "5432"
+      DB_USER:          ${ORDER_DB_USER:-orderuser}
+      DB_PASSWORD:      ${ORDER_DB_PASSWORD:-orderpass}
+      DB_NAME:          ${ORDER_DB:-order_db}
+      DB_SSLMODE:       disable
+      KAFKA_BROKERS:    redpanda:9092
+      JWT_SECRET:       ${JWT_SECRET:-dev-secret-change-me}
+      CATALOG_BASE_URL: http://catalog-service:8081
+      PAYMENT_BASE_URL: http://payment-service:8083
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  payment-service:
+    image: ecom/payment-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: payment
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:        "8083"
+      DB_HOST:          postgres-payment
+      DB_PORT:          "5432"
+      DB_USER:          ${PAYMENT_DB_USER:-paymentuser}
+      DB_PASSWORD:      ${PAYMENT_DB_PASSWORD:-paymentpass}
+      DB_NAME:          ${PAYMENT_DB:-payment_db}
+      DB_SSLMODE:       disable
+      KAFKA_BROKERS:    redpanda:9092
+      JWT_SECRET:       ${JWT_SECRET:-dev-secret-change-me}
+      CATALOG_BASE_URL: http://catalog-service:8081
+      ORDER_BASE_URL:   http://order-service:8082
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  # ─────────────────────────────────────────────────────────
+  # Gateway — single entry point on host port 8080
+  # ─────────────────────────────────────────────────────────
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: ecom-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - catalog-service
+      - order-service
+      - payment-service
+    networks: [ecom-net]
+
+  # ─────────────────────────────────────────────────────────
+  # pgAdmin — registers all 3 Postgres servers automatically
+  # ─────────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: ecom-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL:-admin@ecom.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_CONFIG_ALLOW_SPECIAL_EMAIL_DOMAINS: "['local','dev']"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      - postgres-catalog
+      - postgres-order
+      - postgres-payment
+    networks: [ecom-net]
+
+networks:
+  ecom-net:
+    driver: bridge
+
+volumes:
+  postgres-catalog-data:
+  postgres-order-data:
+  postgres-payment-data:
+  redpanda-data:
+  pgadmin-data:

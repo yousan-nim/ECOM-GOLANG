@@ -1,0 +1,28 @@
+# Local development override.
+# - Expose each Postgres + Redpanda on host for IDE / psql / rpk.
+# - pgAdmin on 5050, Redpanda Console on 8085 (from base).
+# - Services are gated behind the "full" profile so you can run them from your
+#   IDE for hot reload. Start everything containerised with:
+#     docker compose -f docker-compose.yml -f docker-compose.local.yml --profile full up
+
+services:
+  postgres-catalog:
+    ports: ["5432:5432"]
+  postgres-order:
+    ports: ["5433:5432"]
+  postgres-payment:
+    ports: ["5434:5432"]
+  pgadmin:
+    ports: ["5050:80"]
+
+  catalog-service:
+    profiles: ["full"]
+    ports: ["8081:8081"]
+  order-service:
+    profiles: ["full"]
+    ports: ["8082:8082"]
+  payment-service:
+    profiles: ["full"]
+    ports: ["8083:8083"]
+  gateway:
+    profiles: ["full"]

@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS variant_option_values CASCADE;
+DROP TABLE IF EXISTS product_variants CASCADE;
+DROP TABLE IF EXISTS option_values CASCADE;
+DROP TABLE IF EXISTS product_options CASCADE;

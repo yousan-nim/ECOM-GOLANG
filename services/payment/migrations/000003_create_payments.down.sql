@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS payment_webhook_events CASCADE;
+DROP TABLE IF EXISTS payment_idempotency_keys CASCADE;
+DROP TABLE IF EXISTS refunds CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;

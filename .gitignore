@@ -1,0 +1,41 @@
+# ── Build ─────────────────────────────────
+target/
+build/
+out/
+*.jar
+*.war
+*.class
+
+# ── Maven ─────────────────────────────────
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ── IDE ───────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+
+# ── OS ────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs / runtime ────────────────────────
+*.log
+logs/
+heapdump.hprof
+hs_err_pid*.log
+
+# ── Env / secrets ─────────────────────────
+.env
+.env.local
+.env.dev
+.env.prod
+!.env*.example
+
+# ── Docker volume mounts (local data) ─────
+docker/postgres/data/
+docker/pgadmin/data/

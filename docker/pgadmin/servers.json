@@ -1,0 +1,31 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "catalog",
+      "Group": "ecom",
+      "Host": "postgres-catalog",
+      "Port": 5432,
+      "MaintenanceDB": "catalog_db",
+      "Username": "catalog",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "order",
+      "Group": "ecom",
+      "Host": "postgres-order",
+      "Port": 5432,
+      "MaintenanceDB": "order_db",
+      "Username": "orderuser",
+      "SSLMode": "prefer"
+    },
+    "3": {
+      "Name": "payment",
+      "Group": "ecom",
+      "Host": "postgres-payment",
+      "Port": 5432,
+      "MaintenanceDB": "payment_db",
+      "Username": "paymentuser",
+      "SSLMode": "prefer"
+    }
+  }
+}
