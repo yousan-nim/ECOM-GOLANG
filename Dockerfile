@@ -22,6 +22,7 @@ COPY services/cart/      ./services/cart/
 COPY services/review/    ./services/review/
 COPY services/promotion/ ./services/promotion/
 COPY services/media/     ./services/media/
+COPY tools/              ./tools/
 
 ARG SERVICE
 RUN test -n "$SERVICE" || (echo "ERROR: build arg SERVICE is required (catalog|order|payment|cart|review|promotion|media)" && exit 1)
