@@ -12,6 +12,10 @@ resources:
   - 40-catalog.yaml
   - 41-order.yaml
   - 42-payment.yaml
+  - 43-cart.yaml
+  - 44-review.yaml
+  - 45-promotion.yaml
+  - 46-media.yaml
   - 50-ingress.yaml
 images:
   - name: ecom/catalog-service
@@ -19,4 +23,12 @@ images:
   - name: ecom/order-service
     newTag: latest
   - name: ecom/payment-service
+    newTag: latest
+  - name: ecom/cart-service
+    newTag: latest
+  - name: ecom/review-service
+    newTag: latest
+  - name: ecom/promotion-service
+    newTag: latest
+  - name: ecom/media-service
     newTag: latest

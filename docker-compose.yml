@@ -72,6 +72,78 @@ services:
       retries: 5
     networks: [ecom-net]
 
+  postgres-cart:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-cart
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${CART_DB:-cart_db}
+      POSTGRES_USER:     ${CART_DB_USER:-cartuser}
+      POSTGRES_PASSWORD: ${CART_DB_PASSWORD:-cartpass}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-cart-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
+  postgres-review:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-review
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${REVIEW_DB:-review_db}
+      POSTGRES_USER:     ${REVIEW_DB_USER:-reviewuser}
+      POSTGRES_PASSWORD: ${REVIEW_DB_PASSWORD:-reviewpass}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-review-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
+  postgres-promotion:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-promotion
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${PROMOTION_DB:-promotion_db}
+      POSTGRES_USER:     ${PROMOTION_DB_USER:-promouser}
+      POSTGRES_PASSWORD: ${PROMOTION_DB_PASSWORD:-promopass}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-promotion-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
+  postgres-media:
+    image: postgres:16-alpine
+    container_name: ecom-postgres-media
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${MEDIA_DB:-media_db}
+      POSTGRES_USER:     ${MEDIA_DB_USER:-mediauser}
+      POSTGRES_PASSWORD: ${MEDIA_DB_PASSWORD:-mediapass}
+      TZ: Asia/Bangkok
+    volumes:
+      - postgres-media-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [ecom-net]
+
   # ─────────────────────────────────────────────────────────
   # Redpanda — Kafka-compatible broker for the choreography saga
   #   internal listener  redpanda:9092   (services on ecom-net)
@@ -220,6 +292,114 @@ services:
         condition: service_healthy
     networks: [ecom-net]
 
+  cart-service:
+    image: ecom/cart-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: cart
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:     "8084"
+      DB_HOST:       postgres-cart
+      DB_PORT:       "5432"
+      DB_USER:       ${CART_DB_USER:-cartuser}
+      DB_PASSWORD:   ${CART_DB_PASSWORD:-cartpass}
+      DB_NAME:       ${CART_DB:-cart_db}
+      DB_SSLMODE:    disable
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET:    ${JWT_SECRET:-dev-secret-change-me}
+      REDIS_ADDR:    redis:6379
+    depends_on:
+      postgres-cart:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  review-service:
+    image: ecom/review-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: review
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:     "8086"
+      DB_HOST:       postgres-review
+      DB_PORT:       "5432"
+      DB_USER:       ${REVIEW_DB_USER:-reviewuser}
+      DB_PASSWORD:   ${REVIEW_DB_PASSWORD:-reviewpass}
+      DB_NAME:       ${REVIEW_DB:-review_db}
+      DB_SSLMODE:    disable
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET:    ${JWT_SECRET:-dev-secret-change-me}
+      REDIS_ADDR:    redis:6379
+    depends_on:
+      postgres-review:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  promotion-service:
+    image: ecom/promotion-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: promotion
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:     "8087"
+      DB_HOST:       postgres-promotion
+      DB_PORT:       "5432"
+      DB_USER:       ${PROMOTION_DB_USER:-promouser}
+      DB_PASSWORD:   ${PROMOTION_DB_PASSWORD:-promopass}
+      DB_NAME:       ${PROMOTION_DB:-promotion_db}
+      DB_SSLMODE:    disable
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET:    ${JWT_SECRET:-dev-secret-change-me}
+      REDIS_ADDR:    redis:6379
+    depends_on:
+      postgres-promotion:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [ecom-net]
+
+  media-service:
+    image: ecom/media-service:${API_TAG:-local}
+    build:
+      <<: *go-build
+      args:
+        SERVICE: media
+    restart: unless-stopped
+    environment:
+      HTTP_PORT:     "8088"
+      DB_HOST:       postgres-media
+      DB_PORT:       "5432"
+      DB_USER:       ${MEDIA_DB_USER:-mediauser}
+      DB_PASSWORD:   ${MEDIA_DB_PASSWORD:-mediapass}
+      DB_NAME:       ${MEDIA_DB:-media_db}
+      DB_SSLMODE:    disable
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET:    ${JWT_SECRET:-dev-secret-change-me}
+      REDIS_ADDR:    redis:6379
+    depends_on:
+      postgres-media:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [ecom-net]
+
   # ─────────────────────────────────────────────────────────
   # Gateway — single entry point on host port 8080
   # ─────────────────────────────────────────────────────────
@@ -235,6 +415,10 @@ services:
       - catalog-service
       - order-service
       - payment-service
+      - cart-service
+      - review-service
+      - promotion-service
+      - media-service
     networks: [ecom-net]
 
   # ─────────────────────────────────────────────────────────
@@ -267,5 +451,9 @@ volumes:
   postgres-catalog-data:
   postgres-order-data:
   postgres-payment-data:
+  postgres-cart-data:
+  postgres-review-data:
+  postgres-promotion-data:
+  postgres-media-data:
   redpanda-data:
   pgadmin-data:

@@ -18,6 +18,10 @@ the bottleneck analysis behind these choices.
 | `40-catalog.yaml` | catalog Deployment + Service + HPA + PDB (annotated reference) |
 | `41-order.yaml` | order Deployment + Service + HPA + PDB |
 | `42-payment.yaml` | payment Deployment + Service + HPA + PDB |
+| `43-cart.yaml` | cart Deployment + Service + HPA + PDB |
+| `44-review.yaml` | review Deployment + Service + HPA + PDB |
+| `45-promotion.yaml` | promotion Deployment + Service + HPA + PDB |
+| `46-media.yaml` | media Deployment + Service + HPA + PDB |
 | `50-ingress.yaml` | ingress gateway (path routing + rate limiting) |
 | `kustomization.yaml` | applies everything; manages image tags |
 

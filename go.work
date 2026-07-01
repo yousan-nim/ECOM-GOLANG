@@ -5,4 +5,8 @@ use (
 	./services/catalog
 	./services/order
 	./services/payment
+	./services/cart
+	./services/review
+	./services/promotion
+	./services/media
 )

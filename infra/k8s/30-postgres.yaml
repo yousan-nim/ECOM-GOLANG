@@ -154,3 +154,203 @@ spec:
   clusterIP: None
   selector: { app: postgres-payment }
   ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+# ── cart ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-cart
+  namespace: ecom
+spec:
+  serviceName: postgres-cart
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-cart }
+  template:
+    metadata:
+      labels: { app: postgres-cart }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: cart_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: CART_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: CART_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "cartuser", "-d", "cart_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cart
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-cart }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+# ── review ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-review
+  namespace: ecom
+spec:
+  serviceName: postgres-review
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-review }
+  template:
+    metadata:
+      labels: { app: postgres-review }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: review_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: REVIEW_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: REVIEW_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "reviewuser", "-d", "review_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-review
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-review }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+# ── promotion ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-promotion
+  namespace: ecom
+spec:
+  serviceName: postgres-promotion
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-promotion }
+  template:
+    metadata:
+      labels: { app: postgres-promotion }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: promotion_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: PROMOTION_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: PROMOTION_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "promouser", "-d", "promotion_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-promotion
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-promotion }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+# ── media ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-media
+  namespace: ecom
+spec:
+  serviceName: postgres-media
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-media }
+  template:
+    metadata:
+      labels: { app: postgres-media }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: media_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: MEDIA_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: MEDIA_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "mediauser", "-d", "media_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-media
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-media }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]

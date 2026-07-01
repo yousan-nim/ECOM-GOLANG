@@ -4,9 +4,13 @@
 # single nginx pod to fail.
 #
 # Path mapping mirrors infra/nginx/nginx.conf:
-#   /catalog/(.*) -> catalog-service:8081/$1
-#   /order/(.*)   -> order-service:8082/$1
-#   /payment/(.*) -> payment-service:8083/$1
+#   /catalog/(.*)   -> catalog-service:8081/$1
+#   /order/(.*)     -> order-service:8082/$1
+#   /payment/(.*)   -> payment-service:8083/$1
+#   /cart/(.*)      -> cart-service:8084/$1
+#   /review/(.*)    -> review-service:8086/$1
+#   /promotion/(.*) -> promotion-service:8087/$1
+#   /media/(.*)     -> media-service:8088/$1
 #
 # rewrite-target strips the /<svc> prefix. Rate limiting protects against the
 # scraping/bot traffic e-commerce APIs attract (tune per environment).
@@ -45,3 +49,27 @@ spec:
               service:
                 name: payment-service
                 port: { number: 8083 }
+          - path: /cart(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: cart-service
+                port: { number: 8084 }
+          - path: /review(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: review-service
+                port: { number: 8086 }
+          - path: /promotion(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: promotion-service
+                port: { number: 8087 }
+          - path: /media(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: media-service
+                port: { number: 8088 }

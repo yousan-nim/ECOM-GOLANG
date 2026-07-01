@@ -31,10 +31,14 @@ pattern, coordinated through asynchronous events (choreography saga).
 
 | Service           | Port | Database          | Responsibility                              |
 | ----------------- | ---- | ----------------- | ------------------------------------------- |
-| `catalog-service` | 8081 | `postgres-catalog`| Products, pricing, stock / reservations     |
-| `order-service`   | 8082 | `postgres-order`  | Orders, cart, checkout, order lifecycle     |
-| `payment-service` | 8083 | `postgres-payment`| Payments, charges, refunds                  |
-| `gateway` (nginx) | 8080 | —                 | Routes `/catalog/ /order/ /payment/`        |
+| `catalog-service`   | 8081 | `postgres-catalog`  | Products, pricing, stock / reservations   |
+| `order-service`     | 8082 | `postgres-order`    | Orders, checkout, order lifecycle         |
+| `payment-service`   | 8083 | `postgres-payment`  | Payments, charges, refunds                |
+| `cart-service`      | 8084 | `postgres-cart`     | Shopping cart (ephemeral, pre-checkout)   |
+| `review-service`    | 8086 | `postgres-review`   | Product ratings & reviews                 |
+| `promotion-service` | 8087 | `postgres-promotion`| Coupons, discounts, redemptions           |
+| `media-service`     | 8088 | `postgres-media`    | Uploaded media metadata (S3/CDN pointers) |
+| `gateway` (nginx)   | 8080 | —                   | Routes `/catalog/ /order/ /payment/ /cart/ /review/ /promotion/ /media/` |
 
 Databases are **never shared**. A service owns its data; others reach it only via
 events (or, for plain reads, via REST through the gateway).

@@ -1,0 +1,98 @@
+# promotion-service — stateless, horizontally scalable.
+# Deployment (rolling updates) + Service (in-cluster L4 load balancing) +
+# HPA (auto-scale on CPU/memory) + PodDisruptionBudget.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: promotion-service
+  namespace: ecom
+  labels: { app: promotion-service }
+spec:
+  replicas: 2 # baseline; HPA takes over from here
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } # zero-downtime deploys
+  selector:
+    matchLabels: { app: promotion-service }
+  template:
+    metadata:
+      labels: { app: promotion-service }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532 # distroless nonroot
+        fsGroup: 65532
+      containers:
+        - name: promotion
+          image: ecom/promotion-service:latest # set real tag in CI / kustomize
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8087 }
+          env:
+            - { name: HTTP_PORT, value: "8087" }
+            - { name: DB_HOST, value: postgres-promotion }
+            - { name: DB_NAME, value: promotion_db }
+            - { name: DB_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: PROMOTION_DB_USER } } }
+            - { name: DB_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: PROMOTION_DB_PASSWORD } } }
+            - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: ecom-secrets, key: JWT_SECRET } } }
+            - { name: REDIS_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: REDIS_PASSWORD } } }
+          envFrom:
+            - configMapRef: { name: ecom-config }
+          resources:
+            requests: { cpu: "100m", memory: "64Mi" } # HPA scales off these
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe: # gates load-balancer traffic; pings DB
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe: # restarts a wedged process
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: promotion-service
+  namespace: ecom
+  labels: { app: promotion-service }
+spec:
+  selector: { app: promotion-service }
+  ports:
+    - { name: http, port: 8087, targetPort: http }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: promotion-service
+  namespace: ecom
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: promotion-service
+  minReplicas: 2
+  maxReplicas: 4 # promotion is low-traffic
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+    - type: Resource
+      resource: { name: memory, target: { type: Utilization, averageUtilization: 80 } }
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300 # avoid flapping
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: promotion-service
+  namespace: ecom
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: promotion-service }
