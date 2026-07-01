@@ -3,6 +3,10 @@
 E-commerce API built as 3 Go microservices following the **Database-per-Service**
 pattern, coordinated through asynchronous events (choreography saga).
 
+> **Related:** [`SCALING.md`](SCALING.md) — load-balancing layers, HPA, Redis
+> caching, and bottleneck analysis. Kubernetes manifests live in
+> [`infra/k8s/`](../infra/k8s/).
+
 ## 1. Stack decisions
 
 | Area              | Choice                                         |
@@ -19,7 +23,7 @@ pattern, coordinated through asynchronous events (choreography saga).
 
 ### Pending decisions
 
-- **Module path** — e.g. `github.com/bpstech/ecom`. _(to confirm)_
+- **Module path** — e.g. `github.com/yousan-nim/ecom`. _(to confirm)_
 - **Migrations** — `golang-migrate` (versioned, prod-grade) vs GORM `AutoMigrate`
   (simpler, dev-friendly). _(to confirm)_
 

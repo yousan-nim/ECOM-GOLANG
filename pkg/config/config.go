@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -14,8 +15,17 @@ type Config struct {
 	ServiceName  string
 	HTTPPort     string
 	DB           DBConfig
+	Redis        RedisConfig
 	KafkaBrokers []string
 	JWTSecret    string
+}
+
+// RedisConfig describes the shared cache. An empty Addr disables caching, so
+// services run correctly (just slower) without Redis. See pkg/cache.
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
 }
 
 // DBConfig describes a single Postgres instance (one per service).
@@ -56,9 +66,22 @@ func Load(serviceName string) Config {
 			Name:     env("DB_NAME", serviceName+"_db"),
 			SSLMode:  env("DB_SSLMODE", "disable"),
 		},
+		Redis: RedisConfig{
+			Addr:     env("REDIS_ADDR", ""), // empty = caching disabled
+			Password: env("REDIS_PASSWORD", ""),
+			DB:       atoiDefault(env("REDIS_DB", "0"), 0),
+		},
 		KafkaBrokers: splitNonEmpty(env("KAFKA_BROKERS", "localhost:9092")),
 		JWTSecret:    env("JWT_SECRET", "dev-secret-change-me"),
 	}
+}
+
+func atoiDefault(s string, def int) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return def
+	}
+	return n
 }
 
 func env(key, def string) string {

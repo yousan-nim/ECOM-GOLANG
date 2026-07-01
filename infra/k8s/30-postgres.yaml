@@ -1,0 +1,156 @@
+# One Postgres StatefulSet per service — the Database-per-Service pattern.
+# StatefulSets give each DB a stable network identity and a persistent volume.
+#
+# NOTE: For production, prefer a managed Postgres (RDS / Cloud SQL) or an
+# operator (CloudNativePG / Zalando) that handles backups, failover and read
+# replicas. These StatefulSets are a self-contained baseline for dev/staging.
+#
+# ── catalog ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-catalog
+  namespace: ecom
+spec:
+  serviceName: postgres-catalog
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-catalog }
+  template:
+    metadata:
+      labels: { app: postgres-catalog }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: catalog_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: CATALOG_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: CATALOG_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "catalog", "-d", "catalog_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-catalog
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-catalog }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+# ── order ────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-order
+  namespace: ecom
+spec:
+  serviceName: postgres-order
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-order }
+  template:
+    metadata:
+      labels: { app: postgres-order }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: order_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: ORDER_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: ORDER_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "orderuser", "-d", "order_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-order
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-order }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]
+---
+# ── payment ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-payment
+  namespace: ecom
+spec:
+  serviceName: postgres-payment
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres-payment }
+  template:
+    metadata:
+      labels: { app: postgres-payment }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_DB, value: payment_db }
+            - { name: POSTGRES_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: PAYMENT_DB_USER } } }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: PAYMENT_DB_PASSWORD } } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "paymentuser", "-d", "payment_db"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 10Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-payment
+  namespace: ecom
+spec:
+  clusterIP: None
+  selector: { app: postgres-payment }
+  ports: [{ name: pg, port: 5432, targetPort: pg }]

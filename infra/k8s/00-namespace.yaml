@@ -1,0 +1,8 @@
+# All ECOM workloads live in one namespace so quotas, network policies and
+# RBAC can be scoped together.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecom
+  labels:
+    app.kubernetes.io/part-of: ecom

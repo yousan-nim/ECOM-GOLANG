@@ -1,0 +1,99 @@
+# catalog-service — stateless, horizontally scalable.
+# Deployment (rolling updates) + Service (in-cluster L4 load balancing across
+# pods) + HPA (auto-scale on CPU/memory) + PodDisruptionBudget (keep ≥1 pod
+# during voluntary disruptions like node drains).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-service
+  namespace: ecom
+  labels: { app: catalog-service }
+spec:
+  replicas: 2 # baseline; HPA takes over from here
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } # zero-downtime deploys
+  selector:
+    matchLabels: { app: catalog-service }
+  template:
+    metadata:
+      labels: { app: catalog-service }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532 # distroless nonroot
+        fsGroup: 65532
+      containers:
+        - name: catalog
+          image: ecom/catalog-service:latest # set real tag in CI / kustomize
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 8081 }
+          env:
+            - { name: HTTP_PORT, value: "8081" }
+            - { name: DB_HOST, value: postgres-catalog }
+            - { name: DB_NAME, value: catalog_db }
+            - { name: DB_USER, valueFrom: { secretKeyRef: { name: ecom-secrets, key: CATALOG_DB_USER } } }
+            - { name: DB_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: CATALOG_DB_PASSWORD } } }
+            - { name: JWT_SECRET, valueFrom: { secretKeyRef: { name: ecom-secrets, key: JWT_SECRET } } }
+            - { name: REDIS_PASSWORD, valueFrom: { secretKeyRef: { name: ecom-secrets, key: REDIS_PASSWORD } } }
+          envFrom:
+            - configMapRef: { name: ecom-config }
+          resources:
+            requests: { cpu: "100m", memory: "64Mi" } # HPA scales off these
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe: # gates load-balancer traffic; pings DB
+            httpGet: { path: /readyz, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe: # restarts a wedged process
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+  namespace: ecom
+  labels: { app: catalog-service }
+spec:
+  selector: { app: catalog-service }
+  ports:
+    - { name: http, port: 8081, targetPort: http }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: catalog-service
+  namespace: ecom
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog-service
+  minReplicas: 2
+  maxReplicas: 10 # catalog is read-heavy — give it the most headroom
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
+    - type: Resource
+      resource: { name: memory, target: { type: Utilization, averageUtilization: 80 } }
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300 # avoid flapping
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: catalog-service
+  namespace: ecom
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: catalog-service }

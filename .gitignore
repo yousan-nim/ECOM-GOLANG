@@ -39,3 +39,8 @@ hs_err_pid*.log
 # ── Docker volume mounts (local data) ─────
 docker/postgres/data/
 docker/pgadmin/data/
+
+
+# ──────────────────────────────────────────
+.boxbox/
+graphify-out/

@@ -3,6 +3,7 @@
 package httpx
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 
@@ -20,17 +21,38 @@ func Fail(c *gin.Context, status int, code, msg string) {
 	c.JSON(status, gin.H{"error": Error{Code: code, Message: msg}})
 }
 
+// ReadyCheck is one optional dependency probed by /readyz (e.g. Redis).
+// Name appears in the failure envelope; Ping should be cheap and context-aware.
+type ReadyCheck struct {
+	Name string
+	Ping func(context.Context) error
+}
+
 // Health registers liveness (/healthz) and readiness (/readyz) endpoints.
-// Readiness pings the database so orchestrators only route traffic when the
-// service can actually serve.
-func Health(r gin.IRouter, service string, sqlDB *sql.DB) {
+//
+// Liveness is a pure process check (am I up?) used to decide restarts.
+// Readiness pings the database — plus any extra checks — so the load balancer
+// only routes traffic when the service can actually serve. Keep extra checks to
+// dependencies the service cannot function without; a degraded but optional
+// dependency (like a best-effort cache) should NOT fail readiness.
+func Health(r gin.IRouter, service string, sqlDB *sql.DB, extra ...ReadyCheck) {
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"service": service, "status": "ok"})
 	})
 	r.GET("/readyz", func(c *gin.Context) {
-		if err := sqlDB.PingContext(c.Request.Context()); err != nil {
+		ctx := c.Request.Context()
+		if err := sqlDB.PingContext(ctx); err != nil {
 			Fail(c, http.StatusServiceUnavailable, "db_unavailable", err.Error())
 			return
+		}
+		for _, chk := range extra {
+			if chk.Ping == nil {
+				continue
+			}
+			if err := chk.Ping(ctx); err != nil {
+				Fail(c, http.StatusServiceUnavailable, chk.Name+"_unavailable", err.Error())
+				return
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{"service": service, "status": "ready"})
 	})

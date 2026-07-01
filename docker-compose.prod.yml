@@ -28,6 +28,10 @@ services:
   redpanda:
     deploy: { resources: { limits: { memory: 2G } } }
 
+  redis:
+    ports: []   # internal network only in prod
+    deploy: { resources: { limits: { memory: 512M } } }
+
   pgadmin:
     profiles: ["admin"]
     ports: ["127.0.0.1:5050:80"]

@@ -115,6 +115,24 @@ services:
     networks: [ecom-net]
 
   # ─────────────────────────────────────────────────────────
+  # Redis — shared cache (cache-aside). Optional: services run without it,
+  # just slower. See pkg/cache and docs/SCALING.md.
+  # ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ecom-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [ecom-net]
+
+  # ─────────────────────────────────────────────────────────
   # Services — Go binaries, one image each (built from one Dockerfile)
   # ─────────────────────────────────────────────────────────
   catalog-service:
@@ -134,10 +152,13 @@ services:
       DB_SSLMODE:    disable
       KAFKA_BROKERS: redpanda:9092
       JWT_SECRET:    ${JWT_SECRET:-dev-secret-change-me}
+      REDIS_ADDR:    redis:6379
     depends_on:
       postgres-catalog:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks: [ecom-net]
 
@@ -160,10 +181,13 @@ services:
       JWT_SECRET:       ${JWT_SECRET:-dev-secret-change-me}
       CATALOG_BASE_URL: http://catalog-service:8081
       PAYMENT_BASE_URL: http://payment-service:8083
+      REDIS_ADDR:       redis:6379
     depends_on:
       postgres-order:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks: [ecom-net]
 
@@ -186,10 +210,13 @@ services:
       JWT_SECRET:       ${JWT_SECRET:-dev-secret-change-me}
       CATALOG_BASE_URL: http://catalog-service:8081
       ORDER_BASE_URL:   http://order-service:8082
+      REDIS_ADDR:       redis:6379
     depends_on:
       postgres-payment:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks: [ecom-net]
 

@@ -1,0 +1,35 @@
+# Non-secret, environment-wide settings shared by every service.
+# Per-service values (HTTP_PORT, DB_HOST, DB_NAME) are set inline in each
+# Deployment; this holds only what is genuinely common.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecom-config
+  namespace: ecom
+data:
+  KAFKA_BROKERS: "redpanda:9092"
+  REDIS_ADDR: "redis:6379"
+  REDIS_DB: "0"
+  DB_PORT: "5432"
+  DB_SSLMODE: "disable" # use "require" with managed/prod Postgres
+  GIN_MODE: "release"
+---
+# Secrets. In real clusters generate these with `kubectl create secret` or an
+# external secrets operator (Vault / AWS Secrets Manager) — do NOT commit real
+# values. The stringData below are placeholders for local/dev clusters only.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ecom-secrets
+  namespace: ecom
+type: Opaque
+stringData:
+  JWT_SECRET: "dev-secret-change-me"
+  REDIS_PASSWORD: ""
+  # Per-service DB credentials.
+  CATALOG_DB_USER: "catalog"
+  CATALOG_DB_PASSWORD: "catalog"
+  ORDER_DB_USER: "orderuser"
+  ORDER_DB_PASSWORD: "orderpass"
+  PAYMENT_DB_USER: "paymentuser"
+  PAYMENT_DB_PASSWORD: "paymentpass"

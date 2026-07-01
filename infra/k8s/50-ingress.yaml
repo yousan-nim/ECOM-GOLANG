@@ -1,0 +1,47 @@
+# Ingress — the cluster's single entry point, replacing the nginx gateway
+# container. The ingress controller (e.g. ingress-nginx) is itself a
+# horizontally-scaled, HA load balancer fronted by a cloud LB, so there is no
+# single nginx pod to fail.
+#
+# Path mapping mirrors infra/nginx/nginx.conf:
+#   /catalog/(.*) -> catalog-service:8081/$1
+#   /order/(.*)   -> order-service:8082/$1
+#   /payment/(.*) -> payment-service:8083/$1
+#
+# rewrite-target strips the /<svc> prefix. Rate limiting protects against the
+# scraping/bot traffic e-commerce APIs attract (tune per environment).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecom-gateway
+  namespace: ecom
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "5"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /catalog(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: catalog-service
+                port: { number: 8081 }
+          - path: /order(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-service
+                port: { number: 8082 }
+          - path: /payment(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment-service
+                port: { number: 8083 }

@@ -14,11 +14,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	payment "github.com/bpstech/ecom/services/payment"
+	payment "github.com/yousan-nim/ecom/services/payment"
 
-	"github.com/bpstech/ecom/pkg/config"
-	"github.com/bpstech/ecom/pkg/db"
-	"github.com/bpstech/ecom/pkg/httpx"
+	"github.com/yousan-nim/ecom/pkg/cache"
+	"github.com/yousan-nim/ecom/pkg/config"
+	"github.com/yousan-nim/ecom/pkg/db"
+	"github.com/yousan-nim/ecom/pkg/httpx"
 )
 
 func main() {
@@ -37,7 +38,25 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("migrations applied")
-	_ = gdb
+
+	// Cache is optional: an empty REDIS_ADDR disables it, and an unreachable
+	// Redis degrades to no-cache rather than failing the service (Redis is a
+	// performance layer, never required for correctness).
+	cacheCtx, cacheCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	rc, err := cache.Open(cacheCtx, cache.Config(cfg.Redis), cfg.ServiceName)
+	cacheCancel()
+	switch {
+	case err != nil:
+		log.Warn("cache unavailable — running without cache", "err", err)
+	case rc.Enabled():
+		log.Info("cache connected", "addr", cfg.Redis.Addr)
+	default:
+		log.Info("cache disabled (no REDIS_ADDR)")
+	}
+	defer rc.Close()
+
+	_ = gdb // handed to repositories as features are added
+	_ = rc  // handed to repositories/handlers as features are added
 
 	r := gin.New()
 	r.Use(gin.Recovery())
